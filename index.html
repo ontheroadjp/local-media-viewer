@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local Media Viewer</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">PRIVATE · LOCAL · YOUR PHOTOS</p>
+        <div class="hero-row">
+          <div>
+            <h1>Local Media<br /><em>Viewer</em></h1>
+            <p class="intro">PC 内のフォルダから、写真・動画・PDF を静かに眺めるためのビューア。</p>
+          </div>
+          <div class="picker-card">
+            <span class="picker-label">MEDIA FOLDER</span>
+            <button id="folder-button" class="folder-button">フォルダを選択 <span>↗</span></button>
+            <input id="folder-input" type="file" accept="image/*,video/*,application/pdf,.pdf" webkitdirectory multiple hidden />
+            <p id="folder-name" class="folder-name">まだフォルダは選ばれていません</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="gallery-section" aria-labelledby="gallery-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">COLLECTION</p><h2 id="gallery-title">メディア一覧</h2></div>
+          <div class="collection-tools">
+            <div class="media-filters" aria-label="メディア種別フィルター">
+              <button class="filter-button" data-filter="image" aria-pressed="true">画像</button>
+              <button class="filter-button" data-filter="video" aria-pressed="true">動画</button>
+              <button class="filter-button" data-filter="pdf" aria-pressed="true">PDF</button>
+            </div>
+            <p id="image-count" class="image-count">0 items</p>
+          </div>
+        </div>
+        <div id="empty-state" class="empty-state">
+          <span class="empty-icon">◇</span>
+          <p>フォルダを選択すると、ここに写真と動画が並びます。</p>
+          <small>JPEG / PNG / WebP / HEIC / RAW / MP4 / WebM / MOV / PDF などに対応</small>
+        </div>
+        <div id="gallery" class="gallery" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <dialog id="viewer" class="viewer">
+      <div class="viewer-layout">
+        <div class="image-area">
+          <button id="close-button" class="close-button" aria-label="閉じる">×</button>
+          <img id="full-image" alt="選択した画像" />
+          <video id="full-video" controls playsinline hidden></video>
+          <iframe id="full-pdf" title="選択した PDF" hidden></iframe>
+          <div class="viewer-nav">
+            <button id="previous-button" aria-label="前の画像">←</button>
+            <span id="position"></span>
+            <button id="next-button" aria-label="次の画像">→</button>
+          </div>
+        </div>
+        <aside class="metadata-panel">
+          <p class="eyebrow">IMAGE DETAILS</p>
+          <h2 id="image-title">—</h2>
+          <dl id="file-details" class="details"></dl>
+          <div class="metadata-divider"></div>
+          <h3>EXIF</h3>
+          <dl id="exif-details" class="details exif-details"><div><dt>読み込み中</dt><dd>…</dd></div></dl>
+        </aside>
+      </div>
+    </dialog>
+    <script src="app.js"></script>
+  </body>
+</html>
