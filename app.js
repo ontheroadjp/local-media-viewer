@@ -8,12 +8,14 @@ const viewer = document.querySelector('#viewer');
 const fullImage = document.querySelector('#full-image');
 const fullVideo = document.querySelector('#full-video');
 const fullPdf = document.querySelector('#full-pdf');
+const fullText = document.querySelector('#full-text');
+const fullTextContent = fullText.querySelector('pre');
 const imageTitle = document.querySelector('#image-title');
 const fileDetails = document.querySelector('#file-details');
 const exifDetails = document.querySelector('#exif-details');
 const position = document.querySelector('#position');
 let photos = [], activeIndex = 0;
-const visibleTypes = new Set(['image', 'video', 'pdf']);
+const visibleTypes = new Set(['image', 'video', 'pdf', 'text']);
 const rawObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
   entries.forEach(entry => {
     if (!entry.isIntersecting) return;
@@ -25,6 +27,7 @@ const rawObserver = 'IntersectionObserver' in window ? new IntersectionObserver(
 const rawExtensions = /\.(3fr|arw|cr2|cr3|crw|dcr|dng|erf|iiq|k25|kdc|mef|mos|mrw|nef|nrw|orf|pef|raf|raw|rw2|rwl|sr2|srf|x3f)$/i;
 const videoExtensions = /\.(mp4|m4v|mov|webm|ogv|ogg|avi|mkv)$/i;
 const pdfExtensions = /\.pdf$/i;
+const textExtensions = /\.(txt|md|markdown)$/i;
 
 folderButton.addEventListener('click', async () => {
   if ('showDirectoryPicker' in window) {
@@ -48,7 +51,7 @@ async function walkDirectory(handle, result, prefix = '') {
     else if (entry.kind === 'directory') await walkDirectory(entry, result, `${prefix}${entry.name}/`);
   }
 }
-function isMedia(file) { return file.type.startsWith('image/') || file.type.startsWith('video/') || file.type === 'application/pdf' || /\.(jpe?g|png|gif|webp|avif|heic)$/i.test(file.name) || rawExtensions.test(file.name) || videoExtensions.test(file.name) || pdfExtensions.test(file.name); }
+function isMedia(file) { return file.type.startsWith('image/') || file.type.startsWith('video/') || file.type === 'application/pdf' || file.type.startsWith('text/') || /\.(jpe?g|png|gif|webp|avif|heic)$/i.test(file.name) || rawExtensions.test(file.name) || videoExtensions.test(file.name) || pdfExtensions.test(file.name) || textExtensions.test(file.name); }
 function setPhotos(entries, name) {
   photos.forEach(p => URL.revokeObjectURL(p.url));
   photos = entries.map(entry => {
@@ -57,7 +60,7 @@ function setPhotos(entries, name) {
     const folders = relativePath.split('/').slice(0, -1);
     // webkitdirectory の先頭には選択フォルダ名が含まれるため除外する。
     const group = folders.length > 1 ? folders.slice(1).join('/') : 'このフォルダ';
-    return { file, relativePath, group, url:URL.createObjectURL(file), raw:rawExtensions.test(file.name), video:file.type.startsWith('video/') || videoExtensions.test(file.name), pdf:file.type === 'application/pdf' || pdfExtensions.test(file.name), previews:new Map() };
+    return { file, relativePath, group, url:URL.createObjectURL(file), raw:rawExtensions.test(file.name), video:file.type.startsWith('video/') || videoExtensions.test(file.name), pdf:file.type === 'application/pdf' || pdfExtensions.test(file.name), text:file.type.startsWith('text/') || textExtensions.test(file.name), previews:new Map() };
   }).sort((a,b) => a.group.localeCompare(b.group, 'ja') || a.file.name.localeCompare(b.file.name, 'ja'));
   folderName.textContent = name; imageCount.textContent = `${photos.length} item${photos.length === 1 ? '' : 's'}`;
   gallery.replaceChildren(); emptyState.hidden = photos.length > 0;
@@ -69,7 +72,7 @@ function setPhotos(entries, name) {
       const grid = document.createElement('div'); grid.className = 'media-grid';
       section.append(heading, grid); groups.set(photo.group, grid); gallery.append(section);
     }
-    const button = document.createElement('button'); button.className = 'photo-card'; button.dataset.name = photo.file.name; button.dataset.type = photo.pdf ? 'pdf' : photo.video ? 'video' : 'image'; button.setAttribute('aria-label', `${photo.file.name} を開く`); let preview; if (photo.pdf) { button.classList.add('pdf-card'); preview = document.createElement('span'); preview.className = 'pdf-preview'; const label = document.createElement('span'); label.className = 'pdf-label'; label.textContent = 'PDF'; const fileName = document.createElement('span'); fileName.className = 'pdf-name'; fileName.textContent = photo.file.name; preview.append(label, fileName); const mark = document.createElement('span'); mark.className = 'pdf-mark'; mark.textContent = 'PDF DOCUMENT'; button.append(mark); } else if (photo.video) { preview = document.createElement('video'); preview.src = photo.url; preview.muted = true; preview.playsInline = true; preview.preload = 'metadata'; preview.addEventListener('loadedmetadata', () => { preview.currentTime = Math.min(.1, preview.duration / 2); }, { once:true }); const mark = document.createElement('span'); mark.className = 'video-mark'; mark.textContent = '▶ VIDEO'; button.append(mark); } else { preview = new Image(); preview.alt = ''; preview.loading = 'lazy'; preview.src = photo.raw ? '' : photo.url; if (photo.raw) { button.classList.add('raw-card'); preview.alt = 'RAW preview'; const status = document.createElement('span'); status.className = 'raw-status'; status.textContent = 'プレビューを作成中'; button.append(status); if (rawObserver) { button._rawPreview = { photo, image:preview }; rawObserver.observe(button); } else { button.classList.add('raw-loading'); makeRawPreview(photo, preview, 640); } } } button.append(preview); button.addEventListener('click', () => openViewer(index)); groups.get(photo.group).append(button);
+    const button = document.createElement('button'); button.className = 'photo-card'; button.dataset.name = photo.file.name; button.dataset.type = photo.text ? 'text' : photo.pdf ? 'pdf' : photo.video ? 'video' : 'image'; button.setAttribute('aria-label', `${photo.file.name} を開く`); let preview; if (photo.text) { button.classList.add('text-card'); preview = document.createElement('span'); preview.className = 'text-preview'; const label = document.createElement('span'); label.className = 'text-label'; label.textContent = extension(photo.file.name); const fileName = document.createElement('span'); fileName.className = 'text-name'; fileName.textContent = photo.file.name; preview.append(label, fileName); } else if (photo.pdf) { button.classList.add('pdf-card'); preview = document.createElement('span'); preview.className = 'pdf-preview'; const label = document.createElement('span'); label.className = 'pdf-label'; label.textContent = 'PDF'; const fileName = document.createElement('span'); fileName.className = 'pdf-name'; fileName.textContent = photo.file.name; preview.append(label, fileName); const mark = document.createElement('span'); mark.className = 'pdf-mark'; mark.textContent = 'PDF DOCUMENT'; button.append(mark); } else if (photo.video) { preview = document.createElement('video'); preview.src = photo.url; preview.muted = true; preview.playsInline = true; preview.preload = 'metadata'; preview.addEventListener('loadedmetadata', () => { preview.currentTime = Math.min(.1, preview.duration / 2); }, { once:true }); const mark = document.createElement('span'); mark.className = 'video-mark'; mark.textContent = '▶ VIDEO'; button.append(mark); } else { preview = new Image(); preview.alt = ''; preview.loading = 'lazy'; preview.src = photo.raw ? '' : photo.url; if (photo.raw) { button.classList.add('raw-card'); preview.alt = 'RAW preview'; const status = document.createElement('span'); status.className = 'raw-status'; status.textContent = 'プレビューを作成中'; button.append(status); if (rawObserver) { button._rawPreview = { photo, image:preview }; rawObserver.observe(button); } else { button.classList.add('raw-loading'); makeRawPreview(photo, preview, 640); } } } button.append(preview); button.addEventListener('click', () => openViewer(index)); groups.get(photo.group).append(button);
   });
   applyFilters();
 }
@@ -89,19 +92,26 @@ async function openViewer(index) {
   fileDetails.replaceChildren(...detailRows([['形式', photo.file.type || extension(photo.file.name)], ['サイズ', `${photo.file.size.toLocaleString()} bytes`], ['更新日', new Intl.DateTimeFormat('ja-JP', {dateStyle:'medium', timeStyle:'short'}).format(photo.file.lastModified)]]));
   exifDetails.replaceChildren(...detailRows([['読み込み中', '…']]));
   if (!viewer.open) viewer.showModal();
+  if (photo.text) {
+    fullImage.hidden = true; fullVideo.pause(); fullVideo.removeAttribute('src'); fullVideo.hidden = true; fullPdf.removeAttribute('src'); fullPdf.hidden = true;
+    fullText.hidden = false; fullTextContent.textContent = '読み込み中…';
+    readTextFile(photo.file).then(text => { if (photos[activeIndex] === photo) fullTextContent.textContent = text; });
+    exifDetails.replaceChildren(...detailRows([['テキスト文書', '内容をプレーンテキストとして表示しています']]));
+    return;
+  }
   if (photo.pdf) {
-    fullImage.hidden = true; fullVideo.pause(); fullVideo.removeAttribute('src'); fullVideo.hidden = true;
+    fullImage.hidden = true; fullVideo.pause(); fullVideo.removeAttribute('src'); fullVideo.hidden = true; fullText.hidden = true;
     fullPdf.hidden = false; fullPdf.src = photo.url;
     exifDetails.replaceChildren(...detailRows([['PDF', 'ブラウザ内ビューアから閲覧・検索・ダウンロードできます']]));
     return;
   }
   if (photo.video) {
-    fullImage.hidden = true; fullPdf.removeAttribute('src'); fullPdf.hidden = true; fullVideo.hidden = false; fullVideo.src = photo.url; fullVideo.load();
+    fullImage.hidden = true; fullPdf.removeAttribute('src'); fullPdf.hidden = true; fullText.hidden = true; fullVideo.hidden = false; fullVideo.src = photo.url; fullVideo.load();
     fullVideo.onloadedmetadata = () => { if (photos[activeIndex] === photo) fileDetails.replaceChildren(...detailRows([['形式', photo.file.type || extension(photo.file.name)], ['サイズ', `${photo.file.size.toLocaleString()} bytes`], ['長さ', formatDuration(fullVideo.duration)], ['解像度', `${fullVideo.videoWidth} × ${fullVideo.videoHeight}`], ['更新日', new Intl.DateTimeFormat('ja-JP', {dateStyle:'medium', timeStyle:'short'}).format(photo.file.lastModified)]])); };
     exifDetails.replaceChildren(...detailRows([['動画情報', '再生コントロールから動画を操作できます']]));
     return;
   }
-  fullVideo.pause(); fullVideo.removeAttribute('src'); fullVideo.hidden = true; fullPdf.removeAttribute('src'); fullPdf.hidden = true; fullImage.hidden = false; fullImage.src = photo.previews.get(1800) || photo.previews.get(640) || photo.url;
+  fullVideo.pause(); fullVideo.removeAttribute('src'); fullVideo.hidden = true; fullPdf.removeAttribute('src'); fullPdf.hidden = true; fullText.hidden = true; fullImage.hidden = false; fullImage.src = photo.previews.get(1800) || photo.previews.get(640) || photo.url;
   if (photo.raw && !photo.previews.get(1800)) { exifDetails.replaceChildren(...detailRows([['RAW プレビュー', '高画質版を変換中…']])); try { await makeRawPreview(photo, null, 1800); fullImage.src = photo.previews.get(1800); } catch (error) { exifDetails.replaceChildren(...detailRows([['RAW プレビュー', '変換に失敗しました。server.py で起動しているか確認してください。']])); } }
   const exifSource = photo.raw && photo.previews.get(1800) ? await (await fetch(photo.previews.get(1800))).blob() : photo.file;
   const exif = await readExif(exifSource);
@@ -111,6 +121,7 @@ async function openViewer(index) {
 function detailRows(rows) { return rows.map(([key, value]) => { const wrap=document.createElement('div'), dt=document.createElement('dt'), dd=document.createElement('dd'); dt.textContent=key; dd.textContent=value; wrap.append(dt,dd); return wrap; }); }
 function extension(name) { return name.split('.').pop().toUpperCase(); }
 function formatDuration(seconds) { if (!Number.isFinite(seconds)) return '—'; const minutes = Math.floor(seconds / 60); return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`; }
+async function readTextFile(file) { const limit = 5 * 1024 * 1024; const text = await file.slice(0, limit).text(); return file.size > limit ? `${text}\n\n[表示は先頭 5 MiB までです]` : text; }
 async function makeRawPreview(photo, image, size) {
   const card = image?.closest('.photo-card');
   if (photo.previews.get(size)) {

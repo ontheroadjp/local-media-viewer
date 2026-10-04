@@ -1,0 +1,7 @@
+/* Text document cards and reader */
+.text-card { display:grid; place-items:center; background:#e0e8e7; }
+.text-preview { display:flex; width:82%; flex-direction:column; align-items:center; gap:8px; }
+.text-label { color:#28726e; font:600 25px "DM Mono",monospace; letter-spacing:-.08em; }
+.text-name { overflow:hidden; width:100%; color:#3d5553; font:10px "DM Mono",monospace; text-overflow:ellipsis; white-space:nowrap; }
+.text-viewer { width:100%; height:100%; overflow:auto; padding:20px; color:#202521; background:#fbfbf7; text-align:left; }
+.text-viewer pre { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; font:13px/1.65 "DM Mono",monospace; }

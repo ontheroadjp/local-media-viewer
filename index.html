@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Local Media Viewer</title>
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="text.css" />
   </head>
   <body>
     <main class="app-shell">
@@ -18,7 +19,7 @@
           <div class="picker-card">
             <span class="picker-label">MEDIA FOLDER</span>
             <button id="folder-button" class="folder-button">フォルダを選択 <span>↗</span></button>
-            <input id="folder-input" type="file" accept="image/*,video/*,application/pdf,.pdf" webkitdirectory multiple hidden />
+            <input id="folder-input" type="file" accept="image/*,video/*,application/pdf,.pdf,text/plain,text/markdown,.txt,.md,.markdown" webkitdirectory multiple hidden />
             <p id="folder-name" class="folder-name">まだフォルダは選ばれていません</p>
           </div>
         </div>
@@ -32,6 +33,7 @@
               <button class="filter-button" data-filter="image" aria-pressed="true">画像</button>
               <button class="filter-button" data-filter="video" aria-pressed="true">動画</button>
               <button class="filter-button" data-filter="pdf" aria-pressed="true">PDF</button>
+              <button class="filter-button" data-filter="text" aria-pressed="true">テキスト</button>
             </div>
             <p id="image-count" class="image-count">0 items</p>
           </div>
@@ -39,7 +41,7 @@
         <div id="empty-state" class="empty-state">
           <span class="empty-icon">◇</span>
           <p>フォルダを選択すると、ここに写真と動画が並びます。</p>
-          <small>JPEG / PNG / WebP / HEIC / RAW / MP4 / WebM / MOV / PDF などに対応</small>
+          <small>JPEG / PNG / WebP / HEIC / RAW / MP4 / WebM / MOV / PDF / TXT / MD などに対応</small>
         </div>
         <div id="gallery" class="gallery" aria-live="polite"></div>
       </section>
@@ -52,6 +54,7 @@
           <img id="full-image" alt="選択した画像" />
           <video id="full-video" controls playsinline hidden></video>
           <iframe id="full-pdf" title="選択した PDF" hidden></iframe>
+          <article id="full-text" class="text-viewer" hidden><pre></pre></article>
           <div class="viewer-nav">
             <button id="previous-button" aria-label="前の画像">←</button>
             <span id="position"></span>
