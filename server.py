@@ -2,7 +2,8 @@
 """Local-only gallery server. RAW uploads are converted in a temporary file only."""
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-import cgi
+from email.parser import BytesParser
+from email.policy import HTTP
 from io import BytesIO
 import hashlib
 import os
@@ -119,6 +120,16 @@ def preview_from_embedded(jpeg, size):
     image.convert('RGB').save(output, 'JPEG', quality=88, optimize=True)
     return output.getvalue()
 
+def parse_multipart(content_type, body):
+    # cgi モジュールは Python 3.13 で削除されたため、email パーサーで multipart を読む。
+    message = BytesParser(policy=HTTP).parsebytes(b'Content-Type: ' + content_type.encode('latin-1') + b'\r\n\r\n' + body)
+    fields = {}
+    for part in message.iter_parts():
+        name = part.get_param('name', header='content-disposition')
+        if name:
+            fields[name] = (part.get_filename(), part.get_payload(decode=True) or b'')
+    return fields
+
 class GalleryHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
@@ -129,25 +140,27 @@ class GalleryHandler(SimpleHTTPRequestHandler):
             return
         content_type = self.headers.get('Content-Type', '')
         if not content_type.startswith('multipart/form-data'):
-            self.send_error(400, 'multipart/form-data が必要です')
-            return
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers,
-                                environ={'REQUEST_METHOD': 'POST', 'CONTENT_TYPE': content_type})
-        uploaded = form['image'] if 'image' in form else None
-        # cgi.FieldStorage は Python 3.12 で bool() に変換できない。
-        if uploaded is None or not getattr(uploaded, 'filename', None):
-            self.send_error(400, '画像がありません')
-            return
-        suffix = Path(uploaded.filename).suffix.lower()
-        if suffix not in RAW_EXTENSIONS:
-            self.send_error(400, '対応していない RAW 形式です')
+            self.send_error(400, 'multipart/form-data required')
             return
         try:
-            target_size = min(max(int(form.getfirst('size', '420')), 160), 1800)
+            length = int(self.headers.get('Content-Length', ''))
+        except ValueError:
+            self.send_error(411, 'Content-Length required')
+            return
+        form = parse_multipart(content_type, self.rfile.read(length))
+        filename, source_bytes = form.get('image', (None, b''))
+        if not filename:
+            self.send_error(400, 'No image uploaded')
+            return
+        suffix = Path(filename).suffix.lower()
+        if suffix not in RAW_EXTENSIONS:
+            self.send_error(400, 'Unsupported RAW format')
+            return
+        try:
+            target_size = min(max(int(form.get('size', (None, b'420'))[1]), 160), 1800)
         except ValueError:
             target_size = 420
         try:
-            source_bytes = uploaded.file.read()
             source_hash = hashlib.sha256(source_bytes).hexdigest()
             cached = cached_preview(source_hash, target_size)
             if cached:
@@ -183,9 +196,10 @@ class GalleryHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(result_bytes)
         except subprocess.TimeoutExpired:
-            self.send_error(504, 'RAW の変換がタイムアウトしました')
+            self.send_error(504, 'RAW conversion timed out')
         except subprocess.CalledProcessError as error:
-            self.send_error(422, 'RAW を変換できませんでした: ' + error.stderr.decode(errors='replace')[-300:])
+            # ステータス行は latin-1 のみ送れるため、変換エラーの詳細は本文に入れる。
+            self.send_error(422, 'RAW conversion failed', error.stderr.decode(errors='replace')[-300:])
         finally:
             if 'source_path' in locals() and os.path.exists(source_path):
                 os.unlink(source_path)
@@ -200,10 +214,10 @@ class GalleryHandler(SimpleHTTPRequestHandler):
         try:
             size = min(max(int(query.get('size', ['420'])[0]), 160), 1800)
         except ValueError:
-            self.send_error(400, 'size が不正です')
+            self.send_error(400, 'Invalid size')
             return
         if len(source_hash) != 64 or any(char not in '0123456789abcdef' for char in source_hash):
-            self.send_error(400, 'hash が不正です')
+            self.send_error(400, 'Invalid hash')
             return
         image = cached_preview(source_hash, size)
         if image is None:
